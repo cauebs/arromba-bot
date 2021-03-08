@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "arromba-bot"
+version = "0.1.0"
+description = ""
+authors = ["Cauê Baasch de Souza <cauebs@pm.me>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+python-telegram-bot = "^13.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = {version = "^20.8b1", allow-prereleases = true}
+mypy = "^0.812"
+
+[tool.poetry.scripts]
+arromba-bot = "arromba_bot:main"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
