@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from os import environ
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Dict, List, Tuple, Union
 
-from telegram import Message, ParseMode, Update, User, MessageEntity
+from telegram import Message, MessageEntity, ParseMode, Update, User
 from telegram.ext import (
     BasePersistence,
     CallbackContext,
@@ -12,11 +12,12 @@ from telegram.ext import (
     PicklePersistence,
     Updater,
 )
-from telegram.ext.filters import Filters, MessageEntity as MessageEntityType
+from telegram.ext.filters import Filters
+from telegram.ext.filters import MessageEntity as MessageEntityType
 from telegram.utils.helpers import mention_markdown
 
 
-def get_hashtags(message: Message) -> list[str]:
+def get_hashtags(message: Message) -> List[str]:
     entity_types = [MessageEntityType.HASHTAG]
 
     if message.entities is not None:
@@ -28,7 +29,7 @@ def get_hashtags(message: Message) -> list[str]:
     return list(tags)
 
 
-def get_mentions(message: Message) -> list[Union[User, str]]:
+def get_mentions(message: Message) -> List[Union[User, str]]:
     entity_types = [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]
 
     if message.entities is not None:
@@ -83,7 +84,7 @@ def handle_unsub(update: Update, context: CallbackContext) -> None:
 
 def get_user_subscriptions(
     user: Union[User, str], context: CallbackContext
-) -> list[str]:
+) -> List[str]:
     assert context.chat_data is not None
 
     if isinstance(user, User):
@@ -101,7 +102,7 @@ def get_user_subscriptions(
         ]
 
 
-def get_tag_subscribers(tag: str, context: CallbackContext) -> list[tuple[int, str]]:
+def get_tag_subscribers(tag: str, context: CallbackContext) -> List[Tuple[int, str]]:
     assert context.chat_data is not None
     return list(context.chat_data.get(tag, {}).items())
 
