@@ -64,6 +64,20 @@ def handle_unsub(update: Update, context: CallbackContext) -> None:
     return update_subscription(update, context, status=False)
 
 
+def handle_list(update: Update, context: CallbackContext) -> None:
+    assert context.chat_data is not None
+    assert update.effective_user is not None
+
+    subscriptions = (
+        tag
+        for tag, subscribers in context.chat_data.items()
+        if update.effective_user.id in subscribers
+    )
+
+    assert update.message is not None
+    update.message.reply_text(" ".join(subscriptions))
+
+
 def handle_hashtag(update: Update, context: CallbackContext) -> None:
     assert update.message is not None
     tags = get_hashtags(update.message)
@@ -102,6 +116,7 @@ def main() -> None:
 
     dispatcher.add_handler(CommandHandler("sub", handle_sub))
     dispatcher.add_handler(CommandHandler("unsub", handle_unsub))
+    dispatcher.add_handler(CommandHandler("list", handle_list))
     dispatcher.add_handler(
         MessageHandler(
             Filters.entity(MessageEntity.HASHTAG)
