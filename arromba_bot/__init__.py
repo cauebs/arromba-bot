@@ -3,7 +3,7 @@ from os import environ
 from pathlib import Path
 from typing import Any
 
-from telegram import ParseMode, Update, User
+from telegram import ParseMode, Update, User, Message
 from telegram.ext import (
     BasePersistence,
     CallbackContext,
@@ -12,13 +12,27 @@ from telegram.ext import (
     PicklePersistence,
     Updater,
 )
-from telegram.ext.filters import Filters
+from telegram.ext.filters import Filters, MessageEntity
 from telegram.utils.helpers import mention_markdown
 
 
+def get_hashtags(message: Message) -> list[str]:
+    entity_types = [MessageEntity.HASHTAG]
+    tags: list[str] = []
+
+    if message.entities is not None:
+        tags.extend(message.parse_entities(entity_types).values())
+
+    if message.caption_entities is not None:
+        tags.extend(message.parse_caption_entities(entity_types).values())
+
+    return tags
+
+
 def update_subscription(update: Update, context: CallbackContext, status: bool) -> None:
-    tags = context.args
-    assert tags is not None
+    assert update.message is not None
+    tags = get_hashtags(update.message)
+
     assert len(tags) > 0, "me diz pelo menos uma tag, né"
     assert all(
         tag.startswith("#") for tag in tags
@@ -37,7 +51,6 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
         else:
             del subscribers[user.id]
 
-    assert update.message is not None
     prefix = "+" if status else "-"
     text = " ".join(prefix + tag for tag in tags)
     update.message.reply_text(text)
@@ -51,17 +64,12 @@ def handle_unsub(update: Update, context: CallbackContext) -> None:
     return update_subscription(update, context, status=False)
 
 
-def handle_text(update: Update, context: CallbackContext) -> None:
-    message = update.message
-    assert message is not None
-
-    if message.entities is not None:
-        hashtags = message.parse_entities(["hashtag"]).values()
-    elif message.caption_entities is not None:
-        hashtags = message.parse_caption_entities(["hashtag"]).values()
+def handle_hashtag(update: Update, context: CallbackContext) -> None:
+    assert update.message is not None
+    tags = get_hashtags(update.message)
 
     assert context.chat_data is not None
-    tagged = (context.chat_data.get(tag, {}) for tag in hashtags)
+    tagged = (context.chat_data.get(tag, {}) for tag in tags)
 
     mentions = (
         mention_markdown(id, name)
@@ -71,7 +79,7 @@ def handle_text(update: Update, context: CallbackContext) -> None:
 
     text = " ".join(mentions)
     if text:
-        message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 
 def handle_error(update, context: CallbackContext) -> None:
@@ -94,7 +102,13 @@ def main() -> None:
 
     dispatcher.add_handler(CommandHandler("sub", handle_sub))
     dispatcher.add_handler(CommandHandler("unsub", handle_unsub))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_text))
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.entity(MessageEntity.HASHTAG)
+            | Filters.caption_entity(MessageEntity.HASHTAG),
+            handle_hashtag,
+        )
+    )
     dispatcher.add_error_handler(handle_error)
 
     updater.start_polling()
