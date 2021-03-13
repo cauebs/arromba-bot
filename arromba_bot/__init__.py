@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 from os import environ
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
-from telegram import ParseMode, Update, User, Message
+from telegram import Message, ParseMode, Update, User, MessageEntity
 from telegram.ext import (
     BasePersistence,
     CallbackContext,
@@ -12,21 +12,35 @@ from telegram.ext import (
     PicklePersistence,
     Updater,
 )
-from telegram.ext.filters import Filters, MessageEntity
+from telegram.ext.filters import Filters, MessageEntity as MessageEntityType
 from telegram.utils.helpers import mention_markdown
 
 
 def get_hashtags(message: Message) -> list[str]:
-    entity_types = [MessageEntity.HASHTAG]
-    tags: list[str] = []
+    entity_types = [MessageEntityType.HASHTAG]
 
     if message.entities is not None:
-        tags.extend(message.parse_entities(entity_types).values())
+        tags = message.parse_entities(entity_types).values()
 
-    if message.caption_entities is not None:
-        tags.extend(message.parse_caption_entities(entity_types).values())
+    elif message.caption_entities is not None:
+        tags = message.parse_caption_entities(entity_types).values()
 
-    return tags
+    return list(tags)
+
+
+def get_mentions(message: Message) -> list[Union[User, str]]:
+    entity_types = [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]
+
+    if message.entities is not None:
+        mentions = message.parse_entities(entity_types)
+
+    elif message.caption_entities is not None:
+        mentions = message.parse_caption_entities(entity_types)
+
+    return [
+        mention.user if mention.user is not None else username.lstrip("@")
+        for mention, username in mentions.items()
+    ]
 
 
 def update_subscription(update: Update, context: CallbackContext, status: bool) -> None:
@@ -67,18 +81,56 @@ def handle_unsub(update: Update, context: CallbackContext) -> None:
     return update_subscription(update, context, status=False)
 
 
-def handle_list(update: Update, context: CallbackContext) -> None:
+def get_user_subscriptions(
+    user: Union[User, str], context: CallbackContext
+) -> list[str]:
     assert context.chat_data is not None
+
+    if isinstance(user, User):
+        return [
+            tag
+            for tag, subscribers in context.chat_data.items()
+            if user.id in subscribers
+        ]
+
+    else:
+        return [
+            tag
+            for tag, subscribers in context.chat_data.items()
+            if user in subscribers.values()
+        ]
+
+
+def get_tag_subscribers(tag: str, context: CallbackContext) -> list[tuple[int, str]]:
+    assert context.chat_data is not None
+    return list(context.chat_data.get(tag, {}).items())
+
+
+def list_subscriptions(user: Union[User, str], context: CallbackContext) -> str:
+    assert context.chat_data is not None
+
+    subscriptions = get_user_subscriptions(user, context)
+
+    if isinstance(user, User):
+        user_name = user.username or user.first_name
+    else:
+        user_name = user
+
+    return f"inscrições de {user_name}: {' '.join(subscriptions)}"
+
+
+def list_subscribers(tag: str, context: CallbackContext) -> str:
+    assert context.chat_data is not None
+
+    subscribers = get_tag_subscribers(tag, context)
+    mentions = (mention_markdown(id, name) for id, name in subscribers)
+
+    return f"inscritos em {tag}: {' '.join(mentions)}"
+
+
+def handle_list(update: Update, context: CallbackContext) -> None:
     assert update.effective_user is not None
-
-    subscriptions = (
-        tag
-        for tag, subscribers in context.chat_data.items()
-        if update.effective_user.id in subscribers
-    )
-
-    user_name = update.effective_user.username or update.effective_user.first_name
-    text = f"inscrições de {user_name}: {' '.join(subscriptions)}"
+    text = list_subscriptions(update.effective_user, context)
 
     assert update.message is not None
     update.message.reply_text(text)
@@ -91,6 +143,25 @@ def handle_list_all(update: Update, context: CallbackContext) -> None:
 
     assert update.message is not None
     update.message.reply_text(text)
+
+
+def handle_info(update: Update, context: CallbackContext) -> None:
+    assert update.message is not None
+    mentions = get_mentions(update.message)
+    hashtags = get_hashtags(update.message)
+
+    assert len(mentions) + len(hashtags) > 0, "quer info de quê, meu anjo?"
+    assert len(mentions) + len(hashtags) < 2, "uma coisa de cada vez, faz favor"
+
+    if mentions:
+        user = mentions[0]
+        text = list_subscriptions(user, context)
+
+    elif hashtags:
+        tag = hashtags[0]
+        text = list_subscribers(tag, context)
+
+    update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 
 def handle_hashtag(update: Update, context: CallbackContext) -> None:
@@ -133,10 +204,11 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("unsub", handle_unsub))
     dispatcher.add_handler(CommandHandler("list", handle_list))
     dispatcher.add_handler(CommandHandler("listall", handle_list_all))
+    dispatcher.add_handler(CommandHandler("info", handle_info))
     dispatcher.add_handler(
         MessageHandler(
-            Filters.entity(MessageEntity.HASHTAG)
-            | Filters.caption_entity(MessageEntity.HASHTAG),
+            Filters.entity(MessageEntityType.HASHTAG)
+            | Filters.caption_entity(MessageEntityType.HASHTAG),
             handle_hashtag,
         )
     )
