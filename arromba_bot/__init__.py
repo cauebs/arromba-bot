@@ -51,6 +51,8 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
             subscribers[user.id] = user_name
         else:
             del subscribers[user.id]
+            if not subscribers:
+                del context.chat_data[tag]
 
     verb = "adicionadas" if status else "removidas"
     text = f"inscrições {verb} para {user_name}: {' '.join(tags)}"
@@ -77,6 +79,15 @@ def handle_list(update: Update, context: CallbackContext) -> None:
 
     user_name = update.effective_user.username or update.effective_user.first_name
     text = f"inscrições de {user_name}: {' '.join(subscriptions)}"
+
+    assert update.message is not None
+    update.message.reply_text(text)
+
+
+def handle_list_all(update: Update, context: CallbackContext) -> None:
+    assert context.chat_data is not None
+
+    text = f"tags do grupo: {' '.join(context.chat_data.keys())}"
 
     assert update.message is not None
     update.message.reply_text(text)
@@ -121,6 +132,7 @@ def main() -> None:
     dispatcher.add_handler(CommandHandler("sub", handle_sub))
     dispatcher.add_handler(CommandHandler("unsub", handle_unsub))
     dispatcher.add_handler(CommandHandler("list", handle_list))
+    dispatcher.add_handler(CommandHandler("listall", handle_list_all))
     dispatcher.add_handler(
         MessageHandler(
             Filters.entity(MessageEntity.HASHTAG)
