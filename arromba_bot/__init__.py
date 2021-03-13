@@ -147,15 +147,14 @@ def handle_list_all(update: Update, context: CallbackContext) -> None:
 
 
 def handle_info(update: Update, context: CallbackContext) -> None:
+    args = context.args or []
     assert update.message is not None
+
+    assert len(args) > 0, "quer info de quê, meu anjo?"
+    assert len(args) < 2, "uma coisa de cada vez, faz favor"
+
     mentions = get_mentions(update.message)
     hashtags = get_hashtags(update.message)
-    args = context.args or []
-
-    total = len(mentions) + len(hashtags) + len(args)
-
-    assert total > 0, "quer info de quê, meu anjo?"
-    assert total < 2, "uma coisa de cada vez, faz favor"
 
     if mentions:
         user = mentions[0]
