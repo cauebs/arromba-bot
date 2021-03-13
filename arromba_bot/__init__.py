@@ -37,6 +37,11 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
         else:
             del subscribers[user.id]
 
+    assert update.message is not None
+    prefix = "+" if status else "-"
+    text = " ".join(prefix + tag for tag in tags)
+    update.message.reply_text(text)
+
 
 def handle_sub(update: Update, context: CallbackContext) -> None:
     return update_subscription(update, context, status=True)
