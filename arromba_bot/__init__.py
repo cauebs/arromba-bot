@@ -40,6 +40,7 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
 
     user = update.effective_user
     assert user is not None
+    user_name = user.username or user.first_name
 
     assert context.chat_data is not None
 
@@ -47,12 +48,12 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
         subscribers = context.chat_data.setdefault(tag, {})
 
         if status:
-            subscribers[user.id] = user.username or user.first_name
+            subscribers[user.id] = user_name
         else:
             del subscribers[user.id]
 
-    prefix = "+" if status else "-"
-    text = " ".join(prefix + tag for tag in tags)
+    verb = "adicionadas" if status else "removidas"
+    text = f"inscrições {verb} para {user_name}: {' '.join(tags)}"
     update.message.reply_text(text)
 
 
@@ -74,8 +75,11 @@ def handle_list(update: Update, context: CallbackContext) -> None:
         if update.effective_user.id in subscribers
     )
 
+    user_name = update.effective_user.username or update.effective_user.first_name
+    text = f"inscrições de {user_name}: {' '.join(subscriptions)}"
+
     assert update.message is not None
-    update.message.reply_text(" ".join(subscriptions))
+    update.message.reply_text(text)
 
 
 def handle_hashtag(update: Update, context: CallbackContext) -> None:
