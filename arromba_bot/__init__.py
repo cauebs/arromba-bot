@@ -150,9 +150,12 @@ def handle_info(update: Update, context: CallbackContext) -> None:
     assert update.message is not None
     mentions = get_mentions(update.message)
     hashtags = get_hashtags(update.message)
+    args = context.args or []
 
-    assert len(mentions) + len(hashtags) > 0, "quer info de quê, meu anjo?"
-    assert len(mentions) + len(hashtags) < 2, "uma coisa de cada vez, faz favor"
+    total = len(mentions) + len(hashtags) + len(args)
+
+    assert total > 0, "quer info de quê, meu anjo?"
+    assert total < 2, "uma coisa de cada vez, faz favor"
 
     if mentions:
         user = mentions[0]
@@ -161,6 +164,10 @@ def handle_info(update: Update, context: CallbackContext) -> None:
     elif hashtags:
         tag = hashtags[0]
         text = list_subscribers(tag, context)
+
+    else:
+        user = args[0]
+        text = list_subscriptions(user, context)
 
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
