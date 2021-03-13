@@ -124,7 +124,7 @@ def list_subscribers(tag: str, context: CallbackContext) -> str:
     assert context.chat_data is not None
 
     subscribers = get_tag_subscribers(tag, context)
-    mentions = (mention_markdown(id, name) for id, name in subscribers)
+    mentions = (name for id, name in subscribers)
 
     return f"inscritos em {tag}: {' '.join(mentions)}"
 
