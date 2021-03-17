@@ -17,26 +17,30 @@ from telegram.ext.filters import MessageEntity as MessageEntityType
 from telegram.utils.helpers import mention_markdown
 
 
-def get_hashtags(message: Message) -> List[str]:
-    entity_types = [MessageEntityType.HASHTAG]
+def get_entities(
+    message: Message, entity_types: List[MessageEntityType]
+) -> Dict[MessageEntity, str]:
+    entities = {}
 
     if message.entities is not None:
-        tags = message.parse_entities(entity_types).values()
+        entities.update(message.parse_entities(entity_types))
 
-    elif message.caption_entities is not None:
-        tags = message.parse_caption_entities(entity_types).values()
+    if message.caption_entities is not None:
+        entities.update(message.parse_caption_entities(entity_types))
 
+    return entities
+
+
+def get_hashtags(message: Message) -> List[str]:
+    entity_types = [MessageEntityType.HASHTAG]
+    tags = get_entities(message, entity_types).values()
     return list(tags)
 
 
 def get_mentions(message: Message) -> List[Union[User, str]]:
     entity_types = [MessageEntityType.MENTION, MessageEntityType.TEXT_MENTION]
 
-    if message.entities is not None:
-        mentions = message.parse_entities(entity_types)
-
-    elif message.caption_entities is not None:
-        mentions = message.parse_caption_entities(entity_types)
+    mentions = get_entities(message, entity_types)
 
     return [
         mention.user if mention.user is not None else username.lstrip("@")
