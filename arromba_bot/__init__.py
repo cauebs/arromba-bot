@@ -69,6 +69,7 @@ def update_subscription(update: Update, context: CallbackContext, status: bool) 
         if status:
             subscribers[user.id] = user_name
         else:
+            assert user.id in subscribers, "mas tu nem tinha te inscrito nisso, poxa"
             del subscribers[user.id]
             if not subscribers:
                 del context.chat_data[tag]
